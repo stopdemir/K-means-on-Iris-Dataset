@@ -1,0 +1,206 @@
+---
+title: "Clustering and Classification on Irıs Dataset"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## K-means Clustering on Iris Dataset
+
+K-means clustering is a popular unsupervised learning algorithm used in data mining and machine learning. The aim of the k-means algorithm is to partition a set of observations into k clusters (where k is a pre-defined number) based on their similarities.
+
+The algorithm starts by randomly selecting k centroids, where each centroid represents the center of a cluster. Then, each observation is assigned to the nearest centroid based on the Euclidean distance between the observation and the centroid. After all observations are assigned, the centroids are recalculated based on the mean values of the observations in each cluster. This process of assigning observations to the nearest centroid and recalculating the centroids continues until convergence is achieved (i.e., the centroids no longer move).
+
+The k-means algorithm can be applied to a wide variety of datasets and is particularly useful in cases where the data has a clear structure or can be easily partitioned into distinct groups. The approach is commonly used for tasks such as image segmentation, customer segmentation, and anomaly detection, among others.
+
+Overall, the goal of the k-means clustering algorithm is to identify groups of observations that are similar to each other, while being different from observations in other groups. This can help in gaining insights into the underlying structure of the data and making data-driven decisions.
+
+
+## Load Required Libraries
+Load the necessary libraries:
+ggplot2: for data visualization.
+dplyr: for data manipulation.
+cluster: for implementing the k-means clustering algorithm.
+class and rpart: for classification techniques
+
+```{r load-packages, include=FALSE}
+# Load the necessary libraries
+library(ggplot2)
+library(dplyr)
+library(cluster)
+library(class)
+library(rpart)
+#library(naivebayes)
+#library(nnet)
+```
+
+## Descriptive Statistics on the Dataset
+Load the Iris dataset using read.csv() function and store it in the iris_data variable.
+Display an overview of the dataset using cat() and head() functions to show the first few rows of the dataset.
+Perform descriptive statistics on the dataset using summary() function to get information like mean, standard deviation, etc.
+
+```{r }
+# Load the Iris dataset
+iris_data <- read.csv("iris.csv", header = TRUE)
+
+# Display the first few rows of the dataset
+cat("Dataset Overview:\n")
+head(iris_data)
+
+# Perform descriptive statistics on the dataset
+cat("\nDescriptive Statistics:\n")
+summary(iris_data)
+
+boxplot(iris, las=2)
+
+```
+```{r}
+speciesID <- as.numeric(iris$Species)
+ma <- as.matrix(iris_data[, 1:4]) # convert to matrix
+pairs(ma, col = rainbow(3)[speciesID]) # set colors by species
+```
+
+Extract the feature columns (sepal length, sepal width, petal length, petal width) from the dataset using indexing.
+
+```{r}
+# Extract the feature columns (sepal length, sepal width, petal length, petal width)
+features <- iris_data[,1:4]
+
+```
+
+## K-means Clustering
+
+Perform k-means clustering on the feature columns using kmeans() function from cluster library. Here, centers = 3 specifies the number of clusters.
+Set the random seed for reproducibility using set.seed() function.
+Fit the k-means model to the features using the kmeans() function.
+Add the predicted cluster labels to the dataset by creating a new column called 'Cluster' using $ operator.
+
+```{r}
+# Perform k-means clustering on the dataset
+set.seed(42)  # For reproducibility
+kmeans_model <- kmeans(features, centers = 3)
+
+# Add the predicted cluster labels to the dataset
+iris_data$Cluster <- kmeans_model$cluster
+
+```
+Visualize the clusters using ggplot() function from ggplot2 library. This plots the 'sepal.length' on the x-axis and 'petal.length' on the y-axis, with different colors representing different clusters. Add labels to the x-axis, y-axis, and the title of the plot using xlab(), ylab(), and ggtitle() functions, respectively.
+
+```{r}
+
+# Visualize the clusters
+ggplot(iris_data, aes(x = sepal.length, y = petal.length, color = factor(Cluster))) + 
+  geom_point() + 
+  xlab("Sepal Length (cm)") + 
+  ylab("Petal Length (cm)") + 
+  ggtitle("K-means Clustering on Iris Dataset")
+
+```
+# K-means Clustering with Different Number of Clusters
+
+In this section, ignoring the information we have three distinct labels in the dataset, different number of clusters can be tried in k-means clustering and their performances can be compared.
+```{r}
+# Set the range of number of clusters to try
+num_clusters <- 2:5
+```
+
+```{r}
+# Create a list to store the k-means models and their accuracy scores
+models <- list()
+accuracy_scores <- list()
+
+# Perform k-means clustering on the dataset with different number of clusters
+for (i in num_clusters) {
+  # Set the random seed for reproducibility
+  set.seed(42)
+  # Fit the k-means model to the features
+  kmeans_model <- kmeans(features, centers = i)
+  # Add the predicted cluster labels to the dataset
+  iris_data[paste0("Cluster_", i)] <- kmeans_model$cluster
+  # Store the model and accuracy score in their respective lists
+  models[[i-1]] <- kmeans_model
+  accuracy_scores[[i-1]] <- kmeans_model$betweenss/kmeans_model$totss
+}
+```
+
+```{r}
+
+# Print the accuracy scores for each number of clusters
+cat("\nAccuracy Scores for Different Number of Clusters:\n")
+for (i in num_clusters) {
+  cat(paste0("Number of Clusters = ", i, ", Accuracy Score = ", round(accuracy_scores[[i-1]], 3), "\n"))
+}
+
+```
+
+```{r}
+# Visualize the clusters for the best k-means model (highest accuracy score)
+best_model <- models[[which.max(accuracy_scores)]]
+iris_data$Cluster <- best_model$cluster
+ggplot(iris_data, aes(x = sepal.length, y = petal.length, color = factor(Cluster))) + 
+  geom_point() + 
+  xlab("Sepal Length (cm)") + 
+  ylab("Petal Length (cm)") + 
+  ggtitle(paste0("K-means Clustering on Iris Dataset with ", length(best_model$centers), " Clusters (Accuracy Score = ", round(accuracy_scores[[which.max(accuracy_scores)]], 3), ")"))
+
+```
+## Classification  
+
+### Training and Validation Sets
+```{r}
+# Split the dataset into training and validation sets
+set.seed(123)
+train.index <- sample(1:nrow(iris_data), round(2/3 * nrow(iris_data)), replace = FALSE)
+train.data <- iris_data[train.index, ]
+valid.data <- iris_data[-train.index, ]
+
+# Define the target variable
+target <- "variety"
+
+
+```
+
+### K-nearest Models
+A k-nearest-neighbor algorithm, often abbreviated k-nn, is an approach to data classification that estimates how likely a data point is to be a member of one group or the other depending on what group the data points nearest to it are in.
+```{r}
+# K-nearest neighbor algorithm
+knn.model <- knn(train = train.data[, -which(names(train.data) == target)],
+                 test = valid.data[, -which(names(valid.data) == target)],
+                 cl = train.data[, target], k = 3)
+knn.accuracy <- sum(knn.model == valid.data[, target]) / nrow(valid.data)
+```
+
+
+### Decision Tree Model
+Decision Tree algorithm belongs to the family of supervised learning algorithms. Unlike other supervised learning algorithms, the decision tree algorithm can be used for solving regression and classification problems too.
+```{r}
+# Decision tree algorithm
+dt.model <- rpart(variety ~ ., data = train.data, method = "class")
+dt.predictions <- predict(dt.model, newdata = valid.data, type = "class")
+dt.accuracy <- sum(dt.predictions == valid.data[, target]) / nrow(valid.data)
+
+```
+
+```{r}
+# Load the rpart.plot library for visualizing decision trees
+library(rpart.plot)
+
+# Plot the decision tree model
+rpart.plot(dt.model, type = 4, extra = 101, box.palette = "auto", nn = TRUE)
+
+```
+
+
+```{r}
+# Compare the accuracies of the models
+accs <- c(knn = knn.accuracy, dt = dt.accuracy)
+accs
+```
+
+
+
+
+
+
